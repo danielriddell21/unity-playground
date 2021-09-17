@@ -1,0 +1,35 @@
+name: Create Release
+on:
+  workflow_dispatch:    
+    inputs:
+      tag:
+        description: 'Release Tag'  
+  push:
+    tags:
+    - '*'
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/checkout@v2
+     - uses: dawidd6/action-download-artifact@v2
+       with:
+         workflow: main.yml
+         path: artifacts
+     - uses: papeloto/action-zip@v1
+       with:
+        files: artifacts/${{ secrets.REPOSITORY }}-StandaloneWindows
+        dest: release/${{ secrets.REPOSITORY }}-StandaloneWindows.zip
+     - uses: papeloto/action-zip@v1
+       with:
+        files: artifacts/${{ secrets.REPOSITORY }}-StandaloneWindows64
+        dest: release/${{ secrets.REPOSITORY }}-StandaloneWindows64.zip
+     - uses: ncipollo/release-action@v1
+       with:
+        allowUpdates: true
+        prerelease: true
+        artifacts: "release/*.zip"
+        tag: ${{ github.event.inputs.tag }}
+        replacesArtifacts: true
+        token: ${{ secrets.GITHUB_TOKEN }}
