@@ -1,4 +1,6 @@
+using Cinemachine;
 using MLAPI;
+using System.Collections;
 using Unity.Collections;
 using UnityEngine;
 
@@ -11,8 +13,7 @@ public abstract class PlayerController : NetworkBehaviour
     {
         Inactive,
         Grounded,
-        Jumping,
-        Pulling
+        Jumping
     }
 
     [Space]
@@ -23,10 +24,20 @@ public abstract class PlayerController : NetworkBehaviour
     public float PullDistance;
     public float SprintMultiplier;
 
+    [Space]
+    public float SC_CooldownAmount;
+
+    [Space]
+    public GameObject PlayerCamera;
+
+    public static ulong NetworkClientId;
+
     protected Rigidbody _rb;
     protected GameObject _objectBeingPulled;
     protected float _defaultSpeed;
     protected Transform _mainCamera;
+
+    public CooldownTimer _switchCharacterCooldown;
 
     void Start()
     {
@@ -35,30 +46,39 @@ public abstract class PlayerController : NetworkBehaviour
 
         _mainCamera = GameObject.Find("MainCamera").transform;
 
+        _switchCharacterCooldown
+            = InterfaceController.SwitchCharacterCooldown = new CooldownTimer(SC_CooldownAmount);
+
+        Setup();
         Respawn();
     }
 
     void Update()
     {
-        if (InputManager.GetButtonDown("ChangeCharacterKeybind") && !LevelController.IsMultiplayer)
-        {
-            ChangeCharacter();
-        }
-
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            if (LevelController.IsMultiplayer)
-            {
-                PlayerState = LevelController.IsPaused ? State.Inactive : State.Grounded;
-            }
-        }
-
         if (PlayerState == State.Inactive)
         {
             return;
         }
 
-        if (InputManager.GetButtonDown("JumpKeybind") && PlayerState != State.Jumping)
+        if (InputManager.GetButtonDown("ChangeCharacterKeybind")
+            && !LevelController.IsMultiplayer)
+        {
+            if (_switchCharacterCooldown.IsActive)
+            {
+                return;
+            }
+
+            StartCoroutine(ChangeCharacter());
+            _switchCharacterCooldown.StartTimer(5);
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            TogglePauseMenu();
+        }
+
+        if (InputManager.GetButtonDown("JumpKeybind") 
+            && PlayerState == State.Grounded)
         {
             _rb.AddForce(new Vector3(0, JumpStength, 0), ForceMode.Impulse);
             PlayerState = State.Jumping;
@@ -76,23 +96,7 @@ public abstract class PlayerController : NetworkBehaviour
 
         if (InputManager.GetButton("PullKeybind"))
         {
-            var nextToObject = Physics.CheckSphere(transform.position, PullDistance);
-            if (nextToObject)
-            {
-                GameObject closestPullableObject = null;
-                foreach (var pullableObject in GameObject.FindGameObjectsWithTag("PullableObj"))
-                {
-                    if ((pullableObject.transform.position - transform.position).magnitude <= PullDistance)
-                    {
-                        closestPullableObject = pullableObject;
-                    }
-                }
-                if (closestPullableObject != null)
-                {
-                    _objectBeingPulled = closestPullableObject;
-                    PullObject(true);
-                }
-            }
+            CheckIfPullableObject();
         }
 
         if (InputManager.GetButtonUp("PullKeybind"))
@@ -151,10 +155,25 @@ public abstract class PlayerController : NetworkBehaviour
         }
     }
 
-    protected void Respawn()
+    void CheckIfPullableObject()
     {
-        var playerPosition = FindRespawnPoint();
-        transform.position = playerPosition;
+        var nextToObject = Physics.CheckSphere(transform.position, PullDistance);
+        if (nextToObject)
+        {
+            GameObject closestPullableObject = null;
+            foreach (var pullableObject in GameObject.FindGameObjectsWithTag("PullableObj"))
+            {
+                if ((pullableObject.transform.position - transform.position).magnitude <= PullDistance)
+                {
+                    closestPullableObject = pullableObject;
+                }
+            }
+            if (closestPullableObject != null)
+            {
+                _objectBeingPulled = closestPullableObject;
+                PullObject(true);
+            }
+        }
     }
 
     void PullObject(bool pull)
@@ -181,6 +200,40 @@ public abstract class PlayerController : NetworkBehaviour
         }
     }
 
+    void TogglePauseMenu()
+    {
+        if (LevelController.IsPaused)
+        {
+            LevelController.PauseMenu.SetActive(false);
+            _mainCamera.GetComponent<CinemachineBrain>().enabled = true;
+
+            if (LevelController.IsMultiplayer)
+            {
+                PlayerState = State.Inactive;
+            }
+            else
+            {
+                Time.timeScale = 1f;
+            }
+        }
+        else
+        {
+            LevelController.PauseMenu.SetActive(true);
+            _mainCamera.GetComponent<CinemachineBrain>().enabled = false;
+
+            if (LevelController.IsMultiplayer)
+            {
+                PlayerState = State.Grounded;
+            } 
+            else
+            {
+                Time.timeScale = 0f;
+            }
+        }
+
+        LevelController.IsPaused = !LevelController.IsPaused;
+    }
+
     Vector3 FindRespawnPoint()
     {
         var previousRespawnPointDistance = 9999999999999999999999999f;
@@ -199,11 +252,19 @@ public abstract class PlayerController : NetworkBehaviour
         return new Vector3(closestrespawnPoint.transform.position.x, 2, closestrespawnPoint.transform.position.z);
     }
 
+    void Respawn()
+    {
+        var playerPosition = FindRespawnPoint();
+        transform.position = playerPosition;
+    }
+
     protected abstract bool CheckOtherPlayerIsntAtGivenRespawnPoint(GameObject respawnPoint);
 
-    protected abstract void ChangeCharacter();
+    protected abstract IEnumerator ChangeCharacter();
 
     protected abstract float GetPullingObjectWeight(Rigidbody @object);
 
     protected abstract void Rotate(Vector3 movementDirection);
+
+    protected abstract void Setup();
 }

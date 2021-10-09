@@ -1,34 +1,28 @@
+using Cinemachine;
+using System.Collections;
 using UnityEngine;
 
 public class Character2Controller : PlayerController
 {
-    public void SpawnOveride()
+    protected override IEnumerator ChangeCharacter()
     {
-        Respawn();
         PlayerState = State.Inactive;
-    }
+        LevelController.Player2Camera.enabled = false;
 
-    protected override void ChangeCharacter()
-    {
-        var currentlyInactive = PlayerState == State.Inactive;
-        PlayerState = currentlyInactive ? State.Grounded : State.Inactive;
+        yield return new WaitForEndOfFrame();
 
-        var player2 = LevelController.Player2Component;
-        var player2Camera = LevelController.Player2CameraComponent;
-        var player1Camera = LevelController.Player1CameraComponent;
-
-        player2Camera.enabled = player2.PlayerState != State.Inactive;
-        player1Camera.enabled = !player2Camera.enabled;
+        LevelController.Player1.PlayerState = State.Grounded;
+        LevelController.Player1Camera.enabled = true;
     }
 
     protected override bool CheckOtherPlayerIsntAtGivenRespawnPoint(GameObject respawnPoint)
     {
-        if (!LevelController.Player1Component)
+        if (!LevelController.Player1)
         {
             return false;
         }
-        return respawnPoint.transform.position.x == LevelController.Player1Component.transform.position.x
-            && respawnPoint.transform.position.z == LevelController.Player1Component.transform.position.z;
+        return respawnPoint.transform.position.x == LevelController.Player1.transform.position.x
+            && respawnPoint.transform.position.z == LevelController.Player1.transform.position.z;
     }
 
     protected override float GetPullingObjectWeight(Rigidbody @object)
@@ -44,6 +38,28 @@ public class Character2Controller : PlayerController
             var forwardRotation = Quaternion.LookRotation(cameraToPlayerVector, Vector3.up);
 
             transform.rotation = Quaternion.RotateTowards(transform.rotation, forwardRotation, RotationSpeed * Time.deltaTime);
+        }
+    }
+
+    protected override void Setup()
+    {
+        PlayerCamera = Instantiate(PlayerCamera);
+        var camera = PlayerCamera.GetComponent<CinemachineFreeLook>();
+
+        LevelController.Player2 = this;
+        LevelController.Player2Camera = camera;
+
+        camera.Follow = transform.Find("POV");
+        camera.LookAt = transform.Find("POV");
+
+        camera.m_Lens.FieldOfView = PlayerPrefs.GetFloat("FieldOfViewPreference");
+        camera.m_YAxis.m_MaxSpeed =
+            camera.m_XAxis.m_MaxSpeed = PlayerPrefs.GetFloat("SensitivityPreference") * 5;
+
+        if (!LevelController.IsMultiplayer)
+        {
+            PlayerState = State.Inactive;
+            camera.enabled = false;
         }
     }
 }

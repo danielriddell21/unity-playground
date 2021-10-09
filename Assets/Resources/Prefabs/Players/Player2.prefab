@@ -456,3 +456,5 @@ MonoBehaviour:
   JumpStength: 10
   PullDistance: 5
   SprintMultiplier: 1.05
+  SC_CooldownAmmount: 5
+  PlayerCamera: {fileID: 3418067184682155307, guid: d06b0b3a94af4c541a0c977dab79cee9, type: 3}

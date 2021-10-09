@@ -1,28 +1,28 @@
+using Cinemachine;
+using System.Collections;
 using UnityEngine;
 
 public class Character1Controller : PlayerController
 {
-    protected override void ChangeCharacter()
+    protected override IEnumerator ChangeCharacter()
     {
-        var currentlyInactive = PlayerState == State.Inactive;
-        PlayerState = currentlyInactive ? State.Grounded : State.Inactive;
+        PlayerState = State.Inactive;
+        LevelController.Player1Camera.enabled = false;
 
-        var player1 = LevelController.Player1Component;
-        var player1Camera = LevelController.Player1CameraComponent;
-        var player2Camera = LevelController.Player2CameraComponent;
+        yield return new WaitForEndOfFrame();
 
-        player1Camera.enabled = player1.PlayerState != State.Inactive;
-        player2Camera.enabled = !player1Camera.enabled;
+        LevelController.Player2.PlayerState = State.Grounded;
+        LevelController.Player2Camera.enabled = true;
     }
 
     protected override bool CheckOtherPlayerIsntAtGivenRespawnPoint(GameObject respawnPoint)
     {
-        if (!LevelController.Player2Component)
+        if (!LevelController.Player2)
         {
             return false;
         }
-        return respawnPoint.transform.position.x == LevelController.Player2Component.transform.position.x 
-            && respawnPoint.transform.position.z == LevelController.Player2Component.transform.position.z;
+        return respawnPoint.transform.position.x == LevelController.Player2.transform.position.x 
+            && respawnPoint.transform.position.z == LevelController.Player2.transform.position.z;
     }
 
     protected override float GetPullingObjectWeight(Rigidbody @object)
@@ -36,5 +36,19 @@ public class Character1Controller : PlayerController
         var forwardRotation = Quaternion.LookRotation(cameraToPlayerVector, Vector3.up);
 
         transform.rotation = Quaternion.RotateTowards(transform.rotation, forwardRotation, RotationSpeed * Time.deltaTime);
+    }
+
+    protected override void Setup()
+    {
+        PlayerCamera = Instantiate(PlayerCamera);
+        var camera = PlayerCamera.GetComponent<CinemachineVirtualCamera>();
+
+        LevelController.Player1 = this;
+        LevelController.Player1Camera = camera;
+
+        camera.Follow = transform.Find("POV");
+        camera.m_Lens.FieldOfView = PlayerPrefs.GetFloat("FieldOfViewPreference");
+
+        PlayerState = State.Grounded;
     }
 }

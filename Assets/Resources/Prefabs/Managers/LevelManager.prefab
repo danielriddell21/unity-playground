@@ -47,4 +47,4 @@ MonoBehaviour:
   player2Prefab: {fileID: 529825901751174750, guid: 1de70e17f50b72d4fba51cf8fdcf45c6, type: 3}
   player1CameraPrefab: {fileID: 1428055303215132376, guid: 7e6d70e1e8624f4429971e10dba66018, type: 3}
   player2CameraPrefab: {fileID: 3418067184682155307, guid: d06b0b3a94af4c541a0c977dab79cee9, type: 3}
-  PauseMenu: {fileID: 2931827362150468208, guid: 48606f33c55a06143aee1a0e8d403b37, type: 3}
+  InterfacePrefab: {fileID: 6557910199902874859, guid: 16041ad8513483649802b35b958d0052, type: 3}
